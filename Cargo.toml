@@ -1,14 +1,13 @@
 [package]
 name = "simple-tree"
 version = "0.1.2"
+repository = "https://github.com/martypapa/simple-tree-rs"
 authors = ["Marty <marty@mindpipes.com>"]
 edition = "2018"
 license = "MIT"
+readme = "README.md"
+description = "Create, edit and iterate over tree structures"
 
 [lib]
 name = "simple_tree"
 crate-type = ["lib"]
-
-
-
-[dependencies]
