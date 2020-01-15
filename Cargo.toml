@@ -1,0 +1,12 @@
+[package]
+name = "simple-tree"
+version = "0.1.0"
+authors = ["Marty <marty@mindpipes.com>"]
+edition = "2018"
+
+[lib]
+name = "simple_tree"
+crate-type = ["lib"]
+
+
+[dependencies]
