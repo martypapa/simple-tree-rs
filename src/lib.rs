@@ -95,6 +95,7 @@ impl<T: Clone> Tree<T> {
         total
     }
 
+    /// Add a root node and return its id
     pub fn add_root(&mut self, val: T) -> NodeID {
         let i = NodeID{index: self.data.len(), version: 0};
         self.data.push(Some(val));
@@ -105,43 +106,55 @@ impl<T: Clone> Tree<T> {
         i
     }
 
+    /// Returns the value for a node (if it exists)
     pub fn get(&self, node: NodeID) -> Option<&T> {
         match self.is_valid(node) {
             true => self.data[node.index].as_ref(),
             false => None,
         }
     }
+
+    /// Returns the mutable value for a node (if it exists)
     pub fn get_mut(&mut self, node: NodeID) -> Option<&mut T> {
         match self.is_valid(node) {
             true => self.data[node.index].as_mut(),
             false => None,
         }
     }
+
+    /// Returns the value for a node, and panic if it doesn't exist
     pub fn get_unchecked(&self, node: NodeID) -> &T {
         self.data[node.index].as_ref().unwrap()
     }
+
+    /// Returns the mutable value for a node, and panic if it doesn't exist
     pub fn get_unchecked_mut(&mut self, node: NodeID) -> &mut T {
         self.data[node.index].as_mut().unwrap()
     }
 
+    /// Set the value for a node (if it already exists)
     pub fn set(&mut self, node: NodeID, val: T) {
         if self.is_valid(node) {
             self.data[node.index] = Some(val);
         }
     }
 
+    /// Add a child to the node and return its id (if successful)
     pub fn add_child(&mut self, node: NodeID, val: T) -> Option<NodeID> {
         match self.is_valid(node) {
             true => Some(self.add_child_unchecked(node, val)),
             false => None
         }
     }
+
+    /// Add a child to the node and return its id.
+    /// Panics if node does not exist
     pub fn add_child_unchecked(&mut self, node: NodeID, val: T) -> NodeID {
         let x = match self.empty.iter().next().cloned() {
             Some(x) => {
                 self.data[x] = Some(val);
                 self.parents[x] = Some(node);
-                let mut version = self.versions.get_mut(x).unwrap();
+                let version = self.versions.get_mut(x).unwrap();
                 *version += 1;
                 self.empty.remove(&x);
                 NodeID{ index: x, version: *version }
@@ -159,18 +172,19 @@ impl<T: Clone> Tree<T> {
 
     }
 
+    /// Returns the children_ids for a node
+    /// Panics if the node doesn't exist
     pub fn children_ids_unchecked(&self, node: NodeID) -> &Vec<NodeID> {
         &self.children[node.index]
     }
 
+
+    /// Returns the root nodes of the tree
     pub fn root_ids(&self) -> &Vec<NodeID> {
         &self.roots
     }
 
-    pub fn parent_id_unchecked(&self, node: NodeID) -> Option<NodeID> {
-        self.parents[node.index]
-    }
-
+    /// Returns the parent id for the node
     pub fn parent_id(&self, node: NodeID) -> Option<NodeID> {
         match self.is_valid(node) {
             true => self.parents[node.index],
@@ -178,12 +192,18 @@ impl<T: Clone> Tree<T> {
         }
     }
 
+
+    /// Returns a depth-first iterator
+    /// This iterates a single node until a leaf is reached and then moves onto the next one
     pub fn iter_depth(&self) -> DepthIter<T> {
         DepthIter{
             tree: &self,
             stacks: vec![IterStack{group: &self.roots, next_index: 0}],
         }
     }
+
+    /// Returns a breadth-first iterator
+    /// This iterates an entire depth-level before moving onto the next deepest nodes
     pub fn iter_breadth(&self) -> BreadthIter<T> {
         BreadthIter{
             tree: &self,
@@ -194,9 +214,11 @@ impl<T: Clone> Tree<T> {
         }
     }
 
-    pub fn path(&self, branch: NodeID) -> Vec<NodeID> {
-        let mut path: Vec<NodeID> = vec![branch];
-        let mut cur = branch;
+
+    /// Returns the node sequence from a root node to the given node
+    pub fn path(&self, node: NodeID) -> Vec<NodeID> {
+        let mut path: Vec<NodeID> = vec![node];
+        let mut cur = node;
         loop {
             match self.parents[cur.index] {
                 Some(x) => {
@@ -209,12 +231,16 @@ impl<T: Clone> Tree<T> {
         path.reverse();
         path
     }
-    pub fn path_values_ref(&self, branch: NodeID) -> Vec<&T> {
-        self.path(branch).iter().map(|&x| self.get_unchecked(x)).collect::<Vec<_>>()
+
+    /// Returns references to values in the node sequence from a root node to the given node
+    pub fn path_values_ref(&self, node: NodeID) -> Vec<&T> {
+        self.path(node).iter().map(|&x| self.get_unchecked(x)).collect::<Vec<_>>()
     }
-    pub fn path_values(&self, branch: NodeID) -> Vec<T> {
+
+    /// Returns cloned values in the node sequence from a root node to the given node
+    pub fn path_values(&self, node: NodeID) -> Vec<T> {
         self
-            .path(branch)
+            .path(node)
             .into_iter()
             .map(|x| self.get_unchecked(x).clone())
             .collect()
@@ -222,6 +248,7 @@ impl<T: Clone> Tree<T> {
 }
 
 
+/// A node of the tree
 #[derive(Debug, Eq, PartialEq)]
 pub struct Node<'a, T> {
     pub id: NodeID,
@@ -255,8 +282,8 @@ impl<'a, T: Clone> Iterator for DepthIter<'a, T> {
                 // Increment stack to next sibling
                 let depth = self.stacks.len() - 1;
                 let mut stack = self.stacks.last_mut().unwrap();
-                let branch = stack.group[stack.next_index];
-                let children = self.tree.children_ids_unchecked(branch);
+                let node = stack.group[stack.next_index];
+                let children = self.tree.children_ids_unchecked(node);
                 if !children.is_empty() {
                     self.stacks.push(IterStack{
                         next_index: 0,
@@ -266,8 +293,8 @@ impl<'a, T: Clone> Iterator for DepthIter<'a, T> {
                     stack.next_index += 1;
                 }
                 return Some(Self::Item {
-                    id: branch,
-                    value: self.tree.get_unchecked(branch),
+                    id: node,
+                    value: self.tree.get_unchecked(node),
                     depth,
                 });
             }
@@ -317,8 +344,8 @@ mod tests {
         let mut tree: Tree<i32> = Tree::new();
         let root = tree.add_root(0);
         let child1 = tree.add_child_unchecked(root, 1);
-        let child2 = tree.add_child_unchecked(root, 2);
-        let child1_1 = tree.add_child_unchecked(child1, 11);
+        let _child2 = tree.add_child_unchecked(root, 2);
+        let _child1_1 = tree.add_child_unchecked(child1, 11);
 
         let expected: Vec<(i32, usize)> = vec![(0, 0), (1, 1), (11, 2), (2, 1)];
         let real = tree.iter_depth().map(|x|{
@@ -332,8 +359,8 @@ mod tests {
         let mut tree: Tree<i32> = Tree::new();
         let root = tree.add_root(0);
         let child1 = tree.add_child_unchecked(root, 1);
-        let child2 = tree.add_child_unchecked(root, 2);
-        let child1_1 = tree.add_child_unchecked(child1, 11);
+        let _child2 = tree.add_child_unchecked(root, 2);
+        let _child1_1 = tree.add_child_unchecked(child1, 11);
 
         let expected: Vec<(i32, usize)> = vec![(0, 0), (1, 1), (2, 1), (11, 2)];
         let real = tree.iter_breadth().map(|x|{
